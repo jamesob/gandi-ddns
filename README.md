@@ -8,6 +8,13 @@ A dependency-less script for declarative dynamic DNS using the gandi.net API.
 
 ## Example configuration
 
+The following locations will be searched for a configuration file (or you can 
+specify the `--conf` argument):
+
+- environment variable `GANDI_DDNS_CONFIG`
+- ~/.config/gandi-ddns.ini
+- /etc/gandi-ddns/config.ini
+
 ```ini
 
 [default]
@@ -40,6 +47,11 @@ MX, @ = 10 one-val.com., 20 other-val.com.
 
 A, @
 ```
+
+## Environment variables
+
+- `GANDI_APIKEY`: API key for gandi.net
+- `GANDI_DDNS_CONFIG`: path to configuration file
 
 ## Install
 
