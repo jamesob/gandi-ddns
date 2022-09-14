@@ -107,21 +107,24 @@ def get_config(
             die(f"config file not readable: {location}")
         file_handle = open(location, "r")
 
-    cp = configparser.ConfigParser()
+    cp = configparser.ConfigParser(allow_no_value=True)
     assert file_handle
-    cp.read(file_handle.read())
+    cp.read_file(file_handle)
 
     config = Config("")
-    cp.get("default", "wan_device")
-    cp.get("default", "notify_script", fallback=None)
+    config.wan_device = cp.get("default", "wan_device")
+    config.notify_script = cp.get("default", "notify_script", fallback=None)
+    config.gandi_api_key = cp.get('default', 'gandi_api_key', fallback=None)
 
     for name, section in cp.items():
+        name = name.lower()
         if name == "default":
             continue
         config.records[name] = []
 
         for reckey, val in section.items():
             [rectype, recname] = split_csv_line(reckey)
+            rectype = rectype.upper()
             vals = split_csv_line(val) if val else None
 
             config.records[name].append(Record(rectype, recname, vals))
@@ -129,17 +132,19 @@ def get_config(
     return config
 
 
-def gandi_req(url, data={}, method="GET") -> t.Optional[dict]:
+def gandi_req(url, data=None, method="GET") -> t.Optional[dict]:
+    api_key = ENV_APIKEY or GLOBAL_CONF.gandi_api_key
+    assert api_key
     req_headers = {
         "Content-Type": "application/json",
-        "X-Api-Key": ENV_APIKEY or GLOBAL_CONF.gandi_api_key,
+        "X-Api-Key": api_key,
     }
 
     if data:
         data = json.dumps(data).encode()
     req = request.Request(url=url, data=data, headers=req_headers, method=method)
     try:
-        response = request.urlopen(req).read()
+        response = request.urlopen(req).read().decode()
     except urllib.error.HTTPError as e:
         data = e.read()
         print(f"failed request to {url} ({e.code}):\n{data}")
@@ -190,7 +195,6 @@ def main():
         "-c",
         "--conf",
         action="store_const",
-        nargs="?",
         help="Location of ini config file to use",
     )
     args = parser.parse_args()
@@ -205,7 +209,9 @@ def main():
                 found = True
 
         if not found:
-            die(f"no config file found in {', '.join(CONFIG_SEARCH_PATH)}")
+            die(
+                f"no config file found in {', '.join(str(i) for i in CONFIG_SEARCH_PATH)}"
+            )
 
     if not GLOBAL_CONF.wan_device:
         die("config default.wan_device must be specified")
